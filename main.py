@@ -1,31 +1,30 @@
-from user import register_user, login_user
-from admin import admin_panel
+import admin
+import user
 
-def main():
+# Asosiy menyuni yaratish
+def main_menu():
     while True:
-        print("\n1. Ro‘yxatdan o‘tish")
-        print("2. Tizimga kirish")
-        print("3. Chiqish")
-        choice = input("Tanlovingiz: ")
+        print("\n--- Asosiy Menyu ---")
+        print("1. Admin sifatida kirish")
+        print("2. Foydalanuvchi sifatida kirish")
+        print("3. Dasturdan chiqish")
+        choice = input("Tanlang: ")
 
         if choice == "1":
-            name = input("Ism: ")
-            login = input("Login: ")
-            password = input("Parol: ")
-            register_user(name, login, password)
-
+            print("\n--- Admin Tizimi ---")
+            admin.admin_menu()
         elif choice == "2":
-            login = input("Login: ")
-            password = input("Parol: ")
-            user = login_user(login, password)
-            if user:
-                if user[1] == "admin":  # Agar admin bo‘lsa
-                    admin_panel()
-                else:
-                    print("Foydalanuvchilar paneli hali qo‘shilmagan.")
-
+            print("\n--- Foydalanuvchi Tizimi ---")
+            # Foydalanuvchi login qiladi va user_id olinadi
+            user_id = user.login()
+            if user_id:
+                user.user_menu(user_id)  # user_id ni uzatamiz
         elif choice == "3":
+            print("Dasturdan chiqildi.")
             break
+        else:
+            print("Noto'g'ri tanlov!")
 
+# Asosiy funksiya
 if __name__ == "__main__":
-    main()
+    main_menu()
