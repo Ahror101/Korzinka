@@ -463,4 +463,82 @@ def camera_menu():
             else:
                 print("Kamerani o'chirishda xatolik")
 
-        elif choice ==
+
+        elif choice == "0":
+
+            break
+
+        else:
+
+            print("Noto'g'ri tanlov!")
+
+
+def orders_menu():
+    """
+
+    Buyurtmalar bilan ishlash menyusi
+
+    """
+
+    while True:
+
+        print("\n----- BUYURTMALAR -----")
+
+        print("1. Barcha buyurtmalarni ko'rish")
+
+        print("2. Buyurtma holatini yangilash")
+
+        print("0. Orqaga")
+
+        choice = input("Tanlang: ")
+
+        if choice == "1":
+
+            orders = view_all_orders()
+
+            if orders:
+
+                print("\nBUYURTMALAR:")
+
+                for order in orders:
+
+                    print(f"ID: {order['id']}, Foydalanuvchi ID: {order['user_id']}, " +
+
+                          f"Umumiy narx: {order['total_price']}, Holati: {order['status']}")
+
+                    print("Mahsulotlar:")
+
+                    for product in order['products']:
+                        print(f"  Mahsulot ID: {product['product_id']}, Miqdori: {product['quantity']}")
+
+                    print()
+
+            else:
+
+                print("Buyurtmalar yo'q")
+
+
+        elif choice == "2":
+
+            order_id = int(input("Buyurtma ID si: "))
+
+            print("Holatlar: 'pending', 'completed', 'cancelled'")
+
+            status = input("Yangi holat: ")
+
+            if update_order_status(order_id, status):
+
+                print("Buyurtma holati yangilandi")
+
+            else:
+
+                print("Buyurtma holatini yangilashda xatolik")
+
+
+        elif choice == "0":
+
+            break
+
+        else:
+
+            print("Noto'g'ri tanlov!")
