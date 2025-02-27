@@ -1,100 +1,147 @@
-from database import add_user, get_users, update_user_balance
+from database import add_item, get_item, update_item, search_items, get_all_items
 
-# Ro'yxatdan o'tish
-def register():
-    login = input("Login: ")
-    password = input("Parol: ")
-    add_user(login, password)
-    print(f"Foydalanuvchi '{login}' muvaffaqiyatli ro'yxatdan o'tdi!")
 
-# Tizimga kirish
-def login():
-    login = input("Login: ")
-    password = input("Parol: ")
-    users = get_users()
-    user = next((u for u in users if u[1] == login and u[2] == password), None)
-    if user:
-        print(f"Xush kelibsiz, {login}!")
-        return user[0]  # Foydalanuvchi ID-sini qaytaradi
-    else:
-        print("Login yoki parol noto'g'ri!")
+def register_user(name, login, password):
+    """
+    Yangi foydalanuvchi ro'yxatdan o'tkazish
+
+    Args:
+        name (str): Foydalanuvchi ismi
+        login (str): Login
+        password (str): Parol
+
+    Returns:
+        int: Yangi foydalanuvchi ID si yoki None
+    """
+    # Login band emasligini tekshirish
+    existing_users = search_items("users", "login", login)
+    if existing_users:
+        print(f"'{login}' logini band. Boshqa login tanlang.")
         return None
 
-# Balansni tekshirish
-def check_balance(user_id):
-    users = get_users()
-    user = next((u for u in users if u[0] == user_id), None)
-    if user:
-        print(f"Sizning balansingiz: {user[3]}")
-    else:
-        print("Foydalanuvchi topilmadi!")
+    user_data = {
+        "name": name,
+        "login": login,
+        "password": password,
+        "balance": 0  # Boshlang'ich balans 0
+    }
 
-# Balansni to'ldirish
-def add_balance(user_id):
-    amount = float(input("Qancha miqdorda to'ldirmoqchisiz? "))
-    users = get_users()
-    user = next((u for u in users if u[0] == user_id), None)
-    if user:
-        new_balance = user[3] + amount
-        update_user_balance(user_id, new_balance)
-        print(f"Balansingiz muvaffaqiyatli yangilandi! Joriy balans: {new_balance}")
-    else:
-        print("Foydalanuvchi topilmadi!")
+    return add_item("users", user_data)
 
-# Buyurtmalar tarixini ko'rish
-def view_order_history(user_id):
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT orders.id, products.name, orders.quantity, orders.total_price, orders.status
-        FROM orders
-        JOIN products ON orders.product_id = products.id
-        WHERE orders.user_id = ?
-    ''', (user_id,))
-    orders = cursor.fetchall()
-    conn.close()
 
-    if orders:
-        print("\nBuyurtmalar tarixi:")
-        for order in orders:
-            print(f"ID: {order[0]}, Mahsulot: {order[1]}, Soni: {order[2]}, Narxi: {order[3]}, Holati: {order[4]}")
-    else:
-        print("Sizda hali buyurtmalar mavjud emas.")
+def login_user(login, password):
+    """
+    Foydalanuvchi tizimga kirishi
 
-# Foydalanuvchi menyusi
-def user_menu(user_id):
+    Args:
+        login (str): Login
+        password (str): Parol
+
+    Returns:
+        dict: Foydalanuvchi ma'lumotlari yoki None
+    """
+    users = search_items("users", "login", login)
+    if not users:
+        print(f"'{login}' logini topilmadi")
+        return None
+
+    user = users[0]
+    if user["password"] != password:
+        print("Noto'g'ri parol")
+        return None
+
+    return user
+
+
+def add_balance(user_id, amount):
+    """
+    Foydalanuvchi balansini to'ldirish
+
+    Args:
+        user_id (int): Foydalanuvchi ID si
+        amount (float): Qo'shiladigan summa
+
+    Returns:
+        bool: Muvaffaqiyatli to'ldirilgan bo'lsa True
+    """
+    user = get_item("users", user_id)
+    if not user:
+        print(f"ID: {user_id} bo'lgan foydalanuvchi topilmadi")
+        return False
+
+    user["balance"] += amount
+    return update_item("users", user_id, user)
+
+
+def get_user_orders(user_id):
+    """
+    Foydalanuvchi buyurtmalarini olish
+
+    Args:
+        user_id (int): Foydalanuvchi ID si
+
+    Returns:
+        list: Buyurtmalar ro'yxati
+    """
+    all_orders = get_all_items("orders")
+    return [order for order in all_orders if order["user_id"] == user_id]
+
+
+def user_menu(user):
+    """
+    Foydalanuvchi menyusi
+
+    Args:
+        user (dict): Foydalanuvchi ma'lumotlari
+    """
+    from shop import shop_menu
+
     while True:
-        print("\n--- Foydalanuvchi Panel ---")
-        print("1. Balansni tekshirish")
+        print(f"\n===== FOYDALANUVCHI MENYUSI =====")
+        print(f"Salom, {user['name']}! Balans: {user['balance']}")
+        print("1. Do'konga kirish")
         print("2. Balansni to'ldirish")
         print("3. Buyurtmalar tarixini ko'rish")
-        print("4. Chiqish")
+        print("0. Chiqish")
+
         choice = input("Tanlang: ")
 
         if choice == "1":
-            check_balance(user_id)
+            shop_menu(user["id"])
+
         elif choice == "2":
-            add_balance(user_id)
+            try:
+                amount = float(input("Summa: "))
+                if amount <= 0:
+                    print("Summa musbat bo'lishi kerak")
+                    continue
+
+                if add_balance(user["id"], amount):
+                    user["balance"] += amount
+                    print(f"Balans to'ldirildi. Yangi balans: {user['balance']}")
+                else:
+                    print("Balansni to'ldirishda xatolik")
+            except ValueError:
+                print("Noto'g'ri summa")
+
         elif choice == "3":
-            view_order_history(user_id)
-        elif choice == "4":
-            print("Foydalanuvchi panelidan chiqildi.")
+            orders = get_user_orders(user["id"])
+            if orders:
+                print("\nBUYURTMALAR TARIXI:")
+                for order in orders:
+                    print(f"Buyurtma ID: {order['id']}, Umumiy narx: {order['total_price']}, Holati: {order['status']}")
+                    print("Mahsulotlar:")
+                    for product_item in order["products"]:
+                        product = get_item("products", product_item["product_id"])
+                        if product:
+                            print(f"  {product['name']}, Miqdori: {product_item['quantity']}")
+                        else:
+                            print(f"  Mahsulot ID: {product_item['product_id']}, Miqdori: {product_item['quantity']}")
+                    print()
+            else:
+                print("Buyurtmalar yo'q")
+
+        elif choice == "0":
             break
         else:
             print("Noto'g'ri tanlov!")
-
-# Asosiy funksiya
-if __name__ == "__main__":
-    print("--- Foydalanuvchi Tizimi ---")
-    print("1. Ro'yxatdan o'tish")
-    print("2. Tizimga kirish")
-    choice = input("Tanlang: ")
-
-    if choice == "1":
-        register()
-    elif choice == "2":
-        user_id = login()
-        if user_id:
-            user_menu(user_id)
-    else:
-        print("Noto'g'ri tanlov!")

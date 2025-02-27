@@ -1,102 +1,277 @@
-from database import get_products, add_order
+from database import get_item, get_all_items, update_item, add_item
 
-# Mahsulotlarni ko'rish
-def view_products():
-    products = get_products()
-    print("\nMavjud mahsulotlar:")
-    for product in products:
-        print(f"ID: {product[0]}, Nomi: {product[1]}, Narxi: {product[2]}, Soni: {product[3]}")
 
-# Savatni ko'rish
-def view_cart(cart):
-    if not cart:
-        print("Savatingiz bo'sh.")
-        return
-    print("\nSavatingizdagi mahsulotlar:")
-    for item in cart:
-        print(f"ID: {item['id']}, Nomi: {item['name']}, Narxi: {item['price']}, Soni: {item['quantity']}")
+class Cart:
+    def __init__(self, user_id):
+        """
+        Savat yaratish
 
-# Savatga mahsulot qo'shish
-def add_to_cart(cart, products):
-    product_id = int(input("Qo'shmoqchi bo'lgan mahsulot ID-sini kiriting: "))
-    quantity = int(input("Soni: "))
+        Args:
+            user_id (int): Foydalanuvchi ID si
+        """
+        self.user_id = user_id
+        self.items = []  # [{"product_id": id, "quantity": qty}, ...]
+        self.total_price = 0
 
-    # Mahsulotni tekshirish
-    product = next((p for p in products if p[0] == product_id), None)
-    if product:
-        if product[3] >= quantity:
-            cart.append({
-                'id': product[0],
-                'name': product[1],
-                'price': product[2],
-                'quantity': quantity
-            })
-            print(f"{product[1]} savatga qo'shildi!")
-        else:
-            print("Xatolik: Mavjud mahsulot soni yetarli emas!")
-    else:
-        print("Xatolik: Bunday ID-li mahsulot mavjud emas!")
+    def add_product(self, product_id, quantity=1):
+        """
+        Savatga mahsulot qo'shish
 
-# Savatdan mahsulot olib tashlash
-def remove_from_cart(cart):
-    if not cart:
-        print("Savatingiz bo'sh.")
-        return
+        Args:
+            product_id (int): Mahsulot ID si
+            quantity (int): Miqdori
 
-    view_cart(cart)
-    product_id = int(input("O'chirmoqchi bo'lgan mahsulot ID-sini kiriting: "))
-    cart[:] = [item for item in cart if item['id'] != product_id]
-    print("Mahsulot savatdan o'chirildi!")
+        Returns:
+            bool: Muvaffaqiyatli qo'shilgan bo'lsa True
+        """
+        # Mahsulotni tekshirish
+        product = get_item("products", product_id)
+        if not product:
+            print(f"ID: {product_id} bo'lgan mahsulot topilmadi")
+            return False
 
-# Buyurtmani tasdiqlash
-def confirm_order(user_id, cart):
-    if not cart:
-        print("Savatingiz bo'sh. Buyurtma berish uchun avval mahsulot qo'shing.")
-        return
+        # Omborda yetarli mahsulot borligini tekshirish
+        if product["quantity"] < quantity:
+            print(f"Omborda faqat {product['quantity']} dona {product['name']} mavjud")
+            return False
 
-    total_price = sum(item['price'] * item['quantity'] for item in cart)
-    print(f"\nUmumiy narx: {total_price}")
+        # Agar mahsulot allaqachon savatda bo'lsa, miqdorini oshirish
+        for item in self.items:
+            if item["product_id"] == product_id:
+                item["quantity"] += quantity
+                self._update_total_price()
+                return True
 
-    confirm = input("Buyurtmani tasdiqlaysizmi? (ha/yo'q): ").lower()
-    if confirm == "ha":
-        for item in cart:
-            add_order(user_id, item['id'], item['quantity'], item['price'] * item['quantity'])
-        print("Buyurtma muvaffaqiyatli tasdiqlandi!")
-        cart.clear()
-    else:
-        print("Buyurtma bekor qilindi.")
+        # Yangi mahsulot qo'shish
+        self.items.append({
+            "product_id": product_id,
+            "quantity": quantity
+        })
 
-# Do'kon menyusi
+        self._update_total_price()
+        return True
+
+    def remove_product(self, product_id, quantity=None):
+        """
+        Savatdan mahsulotni olib tashlash
+
+        Args:
+            product_id (int): Mahsulot ID si
+            quantity (int, optional): Olib tashlanadigan miqdor. None bo'lsa, to'liq olib tashlash.
+
+        Returns:
+            bool: Muvaffaqiyatli olib tashlangan bo'lsa True
+        """
+        for i, item in enumerate(self.items):
+            if item["product_id"] == product_id:
+                if quantity is None or quantity >= item["quantity"]:
+                    # Mahsulotni to'liq olib tashlash
+                    del self.items[i]
+                else:
+                    # Miqdorni kamaytirish
+                    item["quantity"] -= quantity
+
+                self._update_total_price()
+                return True
+
+        print(f"ID: {product_id} bo'lgan mahsulot savatda topilmadi")
+        return False
+
+    def clear(self):
+        """
+        Savatni tozalash
+        """
+        self.items = []
+        self.total_price = 0
+
+    def _update_total_price(self):
+        """
+        Umumiy narxni yangilash
+        """
+        self.total_price = 0
+        for item in self.items:
+            product = get_item("products", item["product_id"])
+            if product:
+                self.total_price += product["price"] * item["quantity"]
+
+    def view_cart(self):
+        """
+        Savatni ko'rish
+
+        Returns:
+            dict: Savat ma'lumotlari
+        """
+        cart_items = []
+        for item in self.items:
+            product = get_item("products", item["product_id"])
+            if product:
+                cart_items.append({
+                    "product_id": item["product_id"],
+                    "name": product["name"],
+                    "price": product["price"],
+                    "quantity": item["quantity"],
+                    "subtotal": product["price"] * item["quantity"]
+                })
+
+        return {
+            "items": cart_items,
+            "total_price": self.total_price
+        }
+
+    def checkout(self):
+        """
+        Buyurtmani tasdiqlash
+
+        Returns:
+            int: Buyurtma ID si yoki None
+        """
+        if not self.items:
+            print("Savat bo'sh")
+            return None
+
+        # Foydalanuvchini tekshirish
+        user = get_item("users", self.user_id)
+        if not user:
+            print(f"ID: {self.user_id} bo'lgan foydalanuvchi topilmadi")
+            return None
+
+        # Foydalanuvchi balansini tekshirish
+        if user["balance"] < self.total_price:
+            print(f"Yetarli mablag' yo'q. Balans: {user['balance']}, Kerak: {self.total_price}")
+            return None
+
+        # Mahsulotlar miqdorini tekshirish va yangilash
+        for item in self.items:
+            product = get_item("products", item["product_id"])
+            if not product:
+                print(f"ID: {item['product_id']} bo'lgan mahsulot topilmadi")
+                return None
+
+            if product["quantity"] < item["quantity"]:
+                print(f"Omborda faqat {product['quantity']} dona {product['name']} mavjud")
+                return None
+
+            # Mahsulot miqdorini kamaytirish
+            product["quantity"] -= item["quantity"]
+            update_item("products", item["product_id"], product)
+
+        # Foydalanuvchi balansini kamaytirish
+        user["balance"] -= self.total_price
+        update_item("users", self.user_id, user)
+
+        # Buyurtma yaratish
+        order_data = {
+            "user_id": self.user_id,
+            "products": self.items,
+            "total_price": self.total_price,
+            "status": "pending"
+        }
+
+        order_id = add_item("orders", order_data)
+
+        # Savatni tozalash
+        self.clear()
+
+        return order_id
+
+
+def view_all_products():
+    """
+    Barcha mahsulotlarni ko'rish
+
+    Returns:
+        list: Mahsulotlar ro'yxati
+    """
+    return get_all_items("products")
+
+
+def get_product(product_id):
+    """
+    Mahsulot ma'lumotlarini olish
+
+    Args:
+        product_id (int): Mahsulot ID si
+
+    Returns:
+        dict: Mahsulot ma'lumotlari
+    """
+    return get_item("products", product_id)
+
+
 def shop_menu(user_id):
-    cart = []
+    """
+    Do'kon menyusi
+
+    Args:
+        user_id (int): Foydalanuvchi ID si
+    """
+    cart = Cart(user_id)
+
     while True:
-        print("\n--- Do'kon ---")
+        print("\n===== DO'KON =====")
         print("1. Mahsulotlarni ko'rish")
-        print("2. Savatga mahsulot qo'shish")
-        print("3. Savatni ko'rish")
+        print("2. Savatni ko'rish")
+        print("3. Savatga mahsulot qo'shish")
         print("4. Savatdan mahsulot olib tashlash")
-        print("5. Buyurtmani tasdiqlash")
-        print("6. Chiqish")
+        print("5. Savatni tozalash")
+        print("6. Buyurtmani tasdiqlash")
+        print("0. Chiqish")
+
         choice = input("Tanlang: ")
 
         if choice == "1":
-            view_products()
+            products = view_all_products()
+            if products:
+                print("\nMAHSULOTLAR:")
+                for product in products:
+                    print(
+                        f"ID: {product['id']}, Nomi: {product['name']}, Narxi: {product['price']}, Miqdori: {product['quantity']}")
+            else:
+                print("Mahsulotlar yo'q")
+
         elif choice == "2":
-            products = get_products()
-            add_to_cart(cart, products)
+            cart_data = cart.view_cart()
+            if cart_data["items"]:
+                print("\nSAVAT:")
+                for item in cart_data["items"]:
+                    print(
+                        f"Nomi: {item['name']}, Narxi: {item['price']}, Miqdori: {item['quantity']}, Jami: {item['subtotal']}")
+                print(f"\nUmumiy narx: {cart_data['total_price']}")
+            else:
+                print("Savat bo'sh")
+
         elif choice == "3":
-            view_cart(cart)
+            product_id = int(input("Mahsulot ID si: "))
+            quantity = int(input("Miqdori: "))
+
+            if cart.add_product(product_id, quantity):
+                print("Mahsulot savatga qo'shildi")
+            else:
+                print("Mahsulotni savatga qo'shishda xatolik")
+
         elif choice == "4":
-            remove_from_cart(cart)
+            product_id = int(input("Mahsulot ID si: "))
+            quantity_str = input("Miqdori (to'liq olib tashlash uchun bo'sh qoldiring): ")
+
+            quantity = int(quantity_str) if quantity_str else None
+
+            if cart.remove_product(product_id, quantity):
+                print("Mahsulot savatdan olib tashlandi")
+            else:
+                print("Mahsulotni savatdan olib tashlashda xatolik")
+
         elif choice == "5":
-            confirm_order(user_id, cart)
+            cart.clear()
+            print("Savat tozalandi")
+
         elif choice == "6":
-            print("Do'kondan chiqildi.")
+            order_id = cart.checkout()
+            if order_id:
+                print(f"Buyurtma tasdiqlandi. Buyurtma ID: {order_id}")
+            else:
+                print("Buyurtmani tasdiqlashda xatolik")
+
+        elif choice == "0":
             break
         else:
             print("Noto'g'ri tanlov!")
-
-# Asosiy funksiya
-if __name__ == "__main__":
-    user_id = 1  # Misol uchun foydalanuvchi ID-si
-    shop_menu(user_id)

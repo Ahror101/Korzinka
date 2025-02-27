@@ -1,30 +1,61 @@
-import admin
-import user
+from user import register_user, login_user, user_menu
+from admin import admin_login, admin_menu
+from security import security_menu
 
-# Asosiy menyuni yaratish
-def main_menu():
+
+def main():
+    """
+    Asosiy dastur
+    """
+    print("===== KARZINKA DO'KONI =====")
+
     while True:
-        print("\n--- Asosiy Menyu ---")
-        print("1. Admin sifatida kirish")
-        print("2. Foydalanuvchi sifatida kirish")
-        print("3. Dasturdan chiqish")
+        print("\nASSOSIY MENYU:")
+        print("1. Tizimga kirish")
+        print("2. Ro'yxatdan o'tish")
+        print("3. Admin sifatida kirish")
+        print("4. Xavfsizlik bo'limi")
+        print("0. Chiqish")
+
         choice = input("Tanlang: ")
 
         if choice == "1":
-            print("\n--- Admin Tizimi ---")
-            admin.admin_menu()
+            login = input("Login: ")
+            password = input("Parol: ")
+
+            user = login_user(login, password)
+            if user:
+                user_menu(user)
+
         elif choice == "2":
-            print("\n--- Foydalanuvchi Tizimi ---")
-            # Foydalanuvchi login qiladi va user_id olinadi
-            user_id = user.login()
+            name = input("Ismingiz: ")
+            login = input("Login: ")
+            password = input("Parol: ")
+
+            user_id = register_user(name, login, password)
             if user_id:
-                user.user_menu(user_id)  # user_id ni uzatamiz
+                print(f"Ro'yxatdan o'tdingiz. Foydalanuvchi ID: {user_id}")
+                print("Endi tizimga kirishingiz mumkin.")
+
         elif choice == "3":
-            print("Dasturdan chiqildi.")
+            login = input("Admin login: ")
+            password = input("Admin parol: ")
+
+            if admin_login(login, password):
+                admin_menu()
+            else:
+                print("Noto'g'ri login yoki parol")
+
+        elif choice == "4":
+            security_menu()
+
+        elif choice == "0":
+            print("Dastur yakunlandi. Xayr!")
             break
+
         else:
             print("Noto'g'ri tanlov!")
 
-# Asosiy funksiya
+
 if __name__ == "__main__":
-    main_menu()
+    main()
