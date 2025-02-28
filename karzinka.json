@@ -1,0 +1,29 @@
+{
+  "users": [
+    {
+      "name": "badr",
+      "login": "abu",
+      "password": "1234",
+      "balance": 0,
+      "id": 1
+    },
+    {
+      "name": "abu",
+      "login": "badr",
+      "password": "1234",
+      "balance": 0,
+      "id": 2
+    },
+    {
+      "name": "abu",
+      "login": "BADR",
+      "password": "1234",
+      "balance": 0,
+      "id": 3
+    }
+  ],
+  "products": [],
+  "orders": [],
+  "employees": [],
+  "cameras": []
+}
